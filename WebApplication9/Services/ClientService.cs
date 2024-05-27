@@ -1,4 +1,6 @@
-﻿using WebApplication9.Models;
+﻿using WebApplication9.DTOs;
+using WebApplication9.ENUM;
+using WebApplication9.Models;
 using WebApplication9.Repositories;
 
 namespace WebApplication9.Services;
@@ -12,23 +14,18 @@ public class ClientService : IClientService
         _clientRepository = clientRepository;
     }
     
-    public async Task<Client> GetClientById(int id)
+    public async Task<IEnumerable<TripDTO>> GetTrips()
     {
-        return await _clientRepository.GetClientById(id);
+        return await _clientRepository.GetTrips();
     }
 
-    public async Task<bool> DeleteClient(int id)
+    public async Task<Errors> DeleteClient(int idClient)
     {
-        return await _clientRepository.DeleteClient(id);
+        return await _clientRepository.DeleteClient(idClient);
     }
 
-    public async Task<bool> AddClient(Client client)
+    public async Task<Errors> AssignClientToTrip(ClientInputDTO clientInputDto)
     {
-        return await _clientRepository.AddClient(client);
-    }
-
-    public async Task<IEnumerable<Client>> GetAllClients()
-    {
-        return await _clientRepository.GetAllClients();
+        return await _clientRepository.AssignClientToTrip(clientInputDto);
     }
 }

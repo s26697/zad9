@@ -1,4 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using WebApplication9.DTOs;
+using WebApplication9.ENUM;
 using WebApplication9.Models;
 
 namespace WebApplication9.Repositories;
@@ -12,41 +14,90 @@ public class ClientRepository : IClientRepository
         _dbContext = dbContext;
     }
 
-    public async Task<IEnumerable<Client>> GetAllClients()
-    {
-        return await _dbContext.Client.ToListAsync();
-    }
+   
+    
 
-    public async Task<Client> GetClientById(int id)
+    public async Task<Errors> DeleteClient(int idClient)
     {
-        return await _dbContext.Client.FindAsync(id);
-    }
-
-
-    public async Task<bool> DeleteClient(int id)
-    {
-        var client = await _dbContext.Client.FindAsync(id);
+      
+        
+        var client = await _dbContext.Client.FindAsync(idClient);
         if (client == null)
-        {
-            return false; 
-        }
+            return Errors.NotFound;
 
-       
-        if (_dbContext.Client_Trip.Any(ct => ct.IdClient == client.IdClient))
-        {
-            throw new InvalidOperationException("Klient ma przypisane wycieczki.");
-        }
+        if (_dbContext.Client_Trip.Any(ct => ct.IdClient == idClient))
+            return Errors.BadRequest;
 
-        _dbContext.Client.Remove(client);
+         _dbContext.Client.Remove(client);
         await _dbContext.SaveChangesAsync();
-        return true; 
+
+        return Errors.Good;
     }
-    public async Task<bool> AddClient(Client client)
+    public async Task<Errors> AssignClientToTrip(ClientInputDTO clientInputDto)
     {
-        _dbContext.Client.Add(client);
-        await _dbContext.SaveChangesAsync();
-        return true;
+        
+        
+        var existingClient = await _dbContext.Client.FirstOrDefaultAsync(c => c.Pesel == clientInputDto.Pesel);
+        if (existingClient != null)
+            return Errors.BadRequest;
+
+        var trip = await _dbContext.Trip.FindAsync(clientInputDto.IdTrip);
+        if (trip == null)
+            return Errors.NotFound;
+
+        if (trip.DateFrom <= DateTime.Now)
+            return Errors.BadRequest;
+
+        var client = new Client
+        {
+            FirstName = clientInputDto.FirstName,
+            LastName = clientInputDto.LastName,
+            Email = clientInputDto.Email,
+            Telephone = clientInputDto.Telephone,
+            Pesel = clientInputDto.Pesel
+        };
+
+        var clientTrip = new Client_Trip
+        {
+            IdClient = existingClient.IdClient,
+            IdTrip = clientInputDto.IdTrip,
+            RegisteredAt = DateTime.Now,
+            PaymentDate = clientInputDto.PaymentDate
+        };
+
+        _dbContext.Client_Trip.Add(clientTrip);
+        _dbContext.SaveChanges();
+
+        return Errors.Good;
     }
 
+    public async Task<IEnumerable<TripDTO>> GetTrips()
+    {
+        
+
+        List<TripDTO> trips = await _dbContext.Trip
+            .OrderByDescending(t => t.DateFrom)
+            .Select(x => new TripDTO
+            (
+                x.Name, 
+                x.Description, 
+                x.DateFrom, 
+                x.DateTo, 
+                x.MaxPeople, 
+                x.IdCountries.Select(c => new CountryDTO
+                (
+                    c.Name
+                )).ToList(),
+                x.ClientTrips.Select(ct => new ClientDTO
+                (
+                    ct.IdClientNavigation.FirstName,
+                    ct.IdClientNavigation.LastName
+                )).ToList()
+            ))
+            .ToListAsync();
+
+        return trips;
+    }
+    
     
 }
